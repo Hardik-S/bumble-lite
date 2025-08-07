@@ -120,6 +120,20 @@
       .map(it => it.download_url);
   }
 
+  async function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Read error'));
+      reader.onload = () => {
+        const res = reader.result || '';
+        // res is like "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."
+        const base64 = String(res).split(',')[1] || '';
+        resolve(base64);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  
   async function githubUploadImage(user, file){
     if(!state.repo.token || !state.repo.owner || !state.repo.repo){
       // local fallback only
