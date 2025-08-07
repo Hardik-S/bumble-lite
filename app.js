@@ -139,9 +139,9 @@
       // local fallback only
       return localSave(user, file);
     }
-    const arrayBuf = await file.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
+    const base64 = await fileToBase64(file);
     const safeName = `${Date.now()}-${file.name.replace(/[^a-z0-9_.-]/gi,'_')}`;
+    const path = `images/${user}/${safeName}`;
     const path = `images/${user}/${safeName}`;
     const url = `${GH_API}/repos/${state.repo.owner}/${state.repo.repo}/contents/${encodeURIComponent(path)}`;
     const body = {
