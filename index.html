@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Bumble Lite</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Login Screen -->
+    <section id="login-screen" class="screen visible">
+      <h1>bumble‑lite</h1>
+      <p class="sub">Only two users. Only right swipes.</p>
+      <form id="login-form">
+        <label>Username</label>
+        <input id="username" name="username" autocomplete="username" placeholder="hardik or ananya" required />
+        <label>Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" placeholder="••••••••••" required />
+        <button type="submit" class="btn primary">Log in</button>
+      </form>
+      <details class="hint">
+        <summary>Hint</summary>
+        <div><code>hardik / iloveananya</code> or <code>ananya / ilovehardik</code></div>
+      </details>
+    </section>
+
+    <!-- Main App -->
+    <section id="main-screen" class="screen">
+      <header class="topbar">
+        <div class="brand">bumble‑lite</div>
+        <div class="spacer"></div>
+        <button id="open-settings" aria-label="Settings" class="icon-btn">⚙️</button>
+        <button id="logout" class="icon-btn" aria-label="Log out">🚪</button>
+      </header>
+
+      <div class="content">
+        <div class="card-area">
+          <div id="card" class="card" tabindex="0" aria-live="polite">
+            <img id="card-img" alt="Profile image" />
+            <div class="card-footer">
+              <div class="name-wrapper">
+                <span id="other-username"></span>
+              </div>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="like-btn" class="btn primary">❤️ Like</button>
+            <button id="next-btn" class="btn">Next</button>
+          </div>
+          <div id="empty-feed" class="muted" hidden>No images yet. Ask the other user to upload!</div>
+        </div>
+
+        <div class="upload-area">
+          <h2>Upload your photos</h2>
+          <input id="file-input" type="file" accept="image/*" multiple />
+          <button id="upload-btn" class="btn">Upload</button>
+          <div class="muted small">Saved to <code>/images/&lt;your-username&gt;/</code> in your GitHub repo if a token is configured. Otherwise stored locally only.</div>
+          <div id="upload-status" class="status"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings Modal -->
+    <dialog id="settings-dialog">
+      <form method="dialog" id="settings-form">
+        <h3>Repository Settings</h3>
+        <label>Owner (user/org)
+          <input id="gh-owner" placeholder="your-github-username" required />
+        </label>
+        <label>Repo
+          <input id="gh-repo" placeholder="your-repo-name" required />
+        </label>
+        <label>Branch
+          <input id="gh-branch" placeholder="main" value="main" required />
+        </label>
+        <label>GitHub Token (fine-grained with Contents: Read &amp; Write for this repo)
+          <input id="gh-token" type="password" placeholder="ghp_..." />
+        </label>
+        <div class="row">
+          <button type="submit" class="btn primary">Save</button>
+          <button value="cancel" class="btn">Close</button>
+        </div>
+        <p class="muted small">Token is stored in <code>localStorage</code> on this device only.</p>
+      </form>
+    </dialog>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
