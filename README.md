@@ -1,6 +1,6 @@
-# bumble‑lite (2-user, right-swipe-only)
+# Only You (2-user, right-swipe-only)
 
-A tiny Bumble-style web app for **two** users (`hardik`, `ananya`) with fixed passwords. Each user only sees the **other** user's photos. Mobile-friendly for Safari & Chrome. Deployable on **GitHub Pages**.
+A tiny Bumble-style web app for **two** users (`hardik`, `ananya`) with fixed passwords. Each user only sees the **other** user's photos. Mobile-friendly for Safari & Chrome.
 
 ## Features
 - Fixed login pairs:
@@ -10,12 +10,6 @@ A tiny Bumble-style web app for **two** users (`hardik`, `ananya`) with fixed pa
 - Feed shows only the other user's images.
 - Only **right-swipe** (or press ❤️ Like). Left-swipe is disabled by design.
 - Works as a static site on GitHub Pages.
-
-## Quick Start
-1. Create a new **public** GitHub repo and enable **GitHub Pages** (branch: `main`, folder: `/`).
-2. Download and extract this project into the repo root.
-3. Commit & push.
-4. Visit: `https://<owner>.github.io/<repo>/`
 
 ### Configure uploads to GitHub
 Uploads require a **fine-grained GitHub Personal Access Token** with **Contents: Read & Write** permission on this one repo.
