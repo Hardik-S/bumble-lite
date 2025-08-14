@@ -8,6 +8,7 @@
   const passwordInput = el('password');
   const otherUsername = el('other-username');
   const likeBtn = el('like-btn');
+  const superLikeBtn = el('super-like-btn');
   const nextBtn = el('next-btn');
   const card = el('card');
   const cardImg = el('card-img');
@@ -95,6 +96,59 @@
     localStorage.removeItem('bumbleLiteSession');
   }
 
+  // --- Image compression utilities ---
+  function compressImage(file, maxSizeKB = 1000, quality = 0.8) {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      img.onload = () => {
+        // Calculate new dimensions to stay under size limit
+        let { width, height } = img;
+        const maxDim = 1920; // Max dimension
+        
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = (height * maxDim) / width;
+            width = maxDim;
+          } else {
+            width = (width * maxDim) / height;
+            height = maxDim;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Try different quality levels to stay under size limit
+        const tryCompress = (q) => {
+          canvas.toBlob((blob) => {
+            if (blob && blob.size <= maxSizeKB * 1024) {
+              // Convert blob back to File
+              const compressedFile = new File([blob], file.name, {
+                type: blob.type,
+                lastModified: Date.now()
+              });
+              resolve(compressedFile);
+            } else if (q > 0.1) {
+              tryCompress(q - 0.1);
+            } else {
+              // If we can't compress enough, return original
+              resolve(file);
+            }
+          }, file.type, q);
+        };
+        
+        tryCompress(quality);
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
   // --- GitHub API helpers ---
   const GH_API = 'https://api.github.com';
 
@@ -139,9 +193,16 @@
       // local fallback only
       return localSave(user, file);
     }
-    const base64 = await fileToBase64(file);
+    
+    // Compress image if it's too large
+    let processedFile = file;
+    if (file.size > 1000 * 1024) { // If larger than 1MB
+      uploadStatus.textContent = 'Compressing image...';
+      processedFile = await compressImage(file);
+    }
+    
+    const base64 = await fileToBase64(processedFile);
     const safeName = `${Date.now()}-${file.name.replace(/[^a-z0-9_.-]/gi,'_')}`;
-    const path = `images/${user}/${safeName}`;
     const path = `images/${user}/${safeName}`;
     const url = `${GH_API}/repos/${state.repo.owner}/${state.repo.repo}/contents/${encodeURIComponent(path)}`;
     const body = {
@@ -215,37 +276,47 @@
     renderCard();
   }
 
-  function likeCurrent(){
+  function likeCurrent(isSuper = false){
     if(!state.feed.length || state.feedIdx >= state.feed.length) return;
     const img = state.feed[state.feedIdx];
+    
     // Store like locally per user
-    const k = `likes_${state.me}`;
+    const k = isSuper ? `superlikes_${state.me}` : `likes_${state.me}`;
     const likes = JSON.parse(localStorage.getItem(k) || '[]');
     if(!likes.includes(img)) likes.push(img);
     localStorage.setItem(k, JSON.stringify(likes));
 
     // Animate and go next
-    card.classList.remove('swipe-right');
+    const animClass = isSuper ? 'super-like' : 'swipe-right';
+    card.classList.remove('swipe-right', 'super-like');
     void card.offsetWidth; // reflow
-    card.classList.add('swipe-right');
+    card.classList.add(animClass);
     setTimeout(() => {
-      card.classList.remove('swipe-right');
+      card.classList.remove(animClass);
       nextCard();
     }, 250);
   }
 
-  // --- Touch gestures (right swipe only) ---
+  // --- Touch gestures (right swipe and swipe up for super like) ---
   let touchStartX = null, touchStartY = null;
   card.addEventListener('touchstart', (e) => {
     const t = e.changedTouches[0];
     touchStartX = t.clientX; touchStartY = t.clientY;
   }, {passive: true});
+  
   card.addEventListener('touchend', (e) => {
     const t = e.changedTouches[0];
     const dx = t.clientX - touchStartX;
-    const dy = Math.abs(t.clientY - touchStartY);
-    if(dx > 40 && dy < 50){ // right swipe gesture
-      likeCurrent();
+    const dy = touchStartY - t.clientY; // Inverted for upward swipe
+    const horizontalDistance = Math.abs(dx);
+    const verticalDistance = Math.abs(dy);
+    
+    if (dy > 60 && verticalDistance > horizontalDistance) {
+      // Swipe up for super like
+      likeCurrent(true);
+    } else if (dx > 40 && horizontalDistance > verticalDistance) {
+      // Right swipe for regular like
+      likeCurrent(false);
     }
   }, {passive: true});
 
@@ -266,19 +337,29 @@
     }
   });
 
-  likeBtn.addEventListener('click', likeCurrent);
+  likeBtn.addEventListener('click', () => likeCurrent(false));
+  superLikeBtn.addEventListener('click', () => likeCurrent(true));
   nextBtn.addEventListener('click', nextCard);
 
   uploadBtn.addEventListener('click', async () => {
     if(!state.me){ alert('Please log in first'); return; }
     const files = fileInput.files;
     if(!files || !files.length){ alert('Pick image(s) first'); return; }
+    
+    // Check file sizes
+    const oversizedFiles = Array.from(files).filter(file => file.size > 5 * 1024 * 1024); // 5MB limit
+    if (oversizedFiles.length > 0) {
+      alert(`Some files are too large (>5MB): ${oversizedFiles.map(f => f.name).join(', ')}`);
+      return;
+    }
+    
     uploadStatus.textContent = 'Uploading...';
     let ok = 0, fail = 0;
     for(const file of files){
       try{
         await githubUploadImage(state.me, file);
         ok++;
+        uploadStatus.textContent = `Uploaded ${ok}/${files.length} files...`;
       } catch(err){
         console.error(err);
         fail++;
@@ -286,7 +367,7 @@
     }
     uploadStatus.textContent = (state.repo.token && state.repo.owner && state.repo.repo)
       ? `Uploaded ${ok} file(s) to GitHub. ${fail ? fail+' failed.' : ''}`
-      : `Saved ${ok} locally (no GitHub token configured).`;
+      : `Saved ${ok} locally (no GitHub token configured). ${fail ? fail+' failed.' : ''}`;
     fileInput.value = '';
     // If I uploaded my images, the other user will see them; my own feed is unaffected
   });
