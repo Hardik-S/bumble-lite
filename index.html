@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Only You</title>
   <style>
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; .hint { margin-top: 8px; color: var(--muted); }
+.hint summary { cursor: pointer; }
+
+.gesture-hint { text-align: center; font-size: 12px; color: var(--muted); margin-top: 8px; }
+.keyboard-hint { text-align: center; font-size: 11px; color: var(--muted); margin-top: 4px; }
 html, body { margin: 0; padding: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #0b0b0c; color: #f5f6f7; }
 :root { 
   --accent: #f7b500; 
@@ -90,16 +94,28 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); border-color: tr
 .muted { color: var(--muted); }
 .small { font-size: 12px; }
 
-.upload-area { border-top: 1px dashed #2a2a2b; padding-top: 16px; }
-.chat-area { border-top: 1px dashed #2a2a2b; padding-top: 16px; }
+.upload-area, .chat-area, .profile-area { border-top: 1px dashed #2a2a2b; padding-top: 16px; }
 
 .status { min-height: 20px; font-size: 13px; color: #c4f1c4; }
 
-.hint { margin-top: 8px; color: var(--muted); }
-.hint summary { cursor: pointer; }
-
-.gesture-hint { text-align: center; font-size: 12px; color: var(--muted); margin-top: 8px; }
-.keyboard-hint { text-align: center; font-size: 11px; color: var(--muted); margin-top: 4px; }
+/* Profile Cards */
+.profile-card {
+  background: #141416;
+  border: 1px solid #2a2a2b;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.bio-display {
+  background: #0f0f10;
+  border: 1px solid #2a2a2b;
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 60px;
+  color: #dfe1e5;
+  white-space: pre-wrap;
+  margin-bottom: 12px;
+}
 
 /* Chat Messages */
 .chat-messages { 
@@ -116,20 +132,21 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); border-color: tr
   padding: 8px 12px; 
   border-radius: 12px; 
   max-width: 80%;
+  word-wrap: break-word;
 }
 .message.sent { 
-  background: var(--accent); 
-  color: #191919; 
+  background: #2e7d32; 
+  color: #fff; 
   margin-left: auto; 
   text-align: right;
 }
 .message.received { 
-  background: #2a2a2b; 
+  background: #4caf50; 
   color: #fff; 
 }
 .message-time { 
   font-size: 10px; 
-  opacity: 0.7; 
+  opacity: 0.8; 
   margin-top: 4px;
 }
 
@@ -313,6 +330,25 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
           <div id="empty-feed" class="muted" hidden>No images yet. Ask the other user to upload!</div>
         </div>
 
+        <div class="profile-area">
+          <h2>Your Profile</h2>
+          <div class="profile-card">
+            <label>Bio
+              <textarea id="bio-input" placeholder="Tell them about yourself..." rows="3" maxlength="500"></textarea>
+            </label>
+            <div class="row">
+              <button id="save-bio-btn" class="btn primary">Save Bio</button>
+              <span id="bio-status" class="status"></span>
+            </div>
+          </div>
+          
+          <h3><span id="their-name"></span>'s Profile</h3>
+          <div class="profile-card">
+            <div id="their-bio" class="bio-display">No bio yet...</div>
+            <button id="refresh-bio-btn" class="btn">Refresh</button>
+          </div>
+        </div>
+
         <div class="chat-area">
           <h2>Chat with <span id="chat-partner"></span></h2>
           <div id="chat-messages" class="chat-messages"></div>
@@ -320,6 +356,7 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
             <textarea id="chat-input" placeholder="Type a message..." rows="2"></textarea>
             <button id="send-btn" class="btn primary">Send</button>
           </div>
+          <div id="chat-status" class="status"></div>
         </div>
 
         <div class="upload-area">
@@ -420,10 +457,18 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
   const matchUsername = el('match-username');
   const matchClose = el('match-close');
   
-  // Chat elements
   const chatMessages = el('chat-messages');
   const chatInput = el('chat-input');
   const sendBtn = el('send-btn');
+  const chatStatus = el('chat-status');
+  
+  // Profile elements
+  const bioInput = el('bio-input');
+  const saveBioBtn = el('save-bio-btn');
+  const bioStatus = el('bio-status');
+  const theirName = el('their-name');
+  const theirBio = el('their-bio');
+  const refreshBioBtn = el('refresh-bio-btn');
 
   // --- App State ---
   let state = {
@@ -592,6 +637,84 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
   // --- GitHub API helpers ---
   const GH_API = 'https://api.github.com';
 
+  async function githubSaveTextFile(filename, content) {
+    if (!state.repo.token || !state.repo.owner || !state.repo.repo) {
+      throw new Error('GitHub configuration required');
+    }
+    
+    const path = filename;
+    const url = `${GH_API}/repos/${state.repo.owner}/${state.repo.repo}/contents/${encodeURIComponent(path)}`;
+    
+    // First, try to get the current file to get its SHA
+    let sha = null;
+    try {
+      const getResp = await fetch(url, {
+        headers: { 
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `Bearer ${state.repo.token}`
+        }
+      });
+      if (getResp.ok) {
+        const data = await getResp.json();
+        sha = data.sha;
+      }
+    } catch(e) {
+      // File doesn't exist yet, that's okay
+    }
+    
+    const body = {
+      message: `Update ${filename}`,
+      content: btoa(unescape(encodeURIComponent(content))), // Proper UTF-8 encoding
+      branch: state.repo.branch
+    };
+    
+    if (sha) {
+      body.sha = sha; // Required for updates
+    }
+    
+    const resp = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.repo.token}`
+      },
+      body: JSON.stringify(body)
+    });
+    
+    if (!resp.ok) {
+      const t = await resp.text();
+      throw new Error(`GitHub save failed: ${resp.status} ${t}`);
+    }
+    return true;
+  }
+  
+  async function githubLoadTextFile(filename) {
+    if (!state.repo.owner || !state.repo.repo) {
+      return null;
+    }
+    
+    const url = `${GH_API}/repos/${state.repo.owner}/${state.repo.repo}/contents/${encodeURIComponent(filename)}?r=${Date.now()}`;
+    const headers = { 'Accept': 'application/vnd.github+json' };
+    
+    if (state.repo.token) {
+      headers['Authorization'] = `Bearer ${state.repo.token}`;
+    }
+    
+    const resp = await fetch(url, { headers });
+    
+    if (resp.status === 404) {
+      return null; // File doesn't exist
+    }
+    
+    if (!resp.ok) {
+      throw new Error(`GitHub load failed: ${resp.status}`);
+    }
+    
+    const data = await resp.json();
+    return decodeURIComponent(escape(atob(data.content))); // Proper UTF-8 decoding
+  }
+
   async function githubListImages(user){
     const path = `images/${user}`;
     if(!state.repo.owner || !state.repo.repo){
@@ -701,6 +824,7 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
   async function loadFeed(){
     otherUsername.textContent = state.other;
     chatPartner.textContent = state.other;
+    theirName.textContent = state.other;
     try {
       const imgs = await githubListImages(state.other);
       state.feed = imgs;
@@ -800,56 +924,156 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
     }
   }
 
-  // --- Chat functionality ---
-  function loadChatMessages() {
-    const messages = JSON.parse(localStorage.getItem(`chat_${state.me}_${state.other}`) || '[]');
-    chatMessages.innerHTML = '';
+  // --- Bio/Profile functionality ---
+  async function saveBio() {
+    const bioText = bioInput.value.trim();
+    bioStatus.textContent = 'Saving bio...';
     
-    messages.forEach(msg => {
-      const div = document.createElement('div');
-      div.className = `message ${msg.from === state.me ? 'sent' : 'received'}`;
-      
-      const text = document.createElement('div');
-      text.textContent = msg.text;
-      
-      const time = document.createElement('div');
-      time.className = 'message-time';
-      time.textContent = new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-      
-      div.appendChild(text);
-      div.appendChild(time);
-      chatMessages.appendChild(div);
-    });
-    
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    try {
+      if (state.repo.token) {
+        // Save to GitHub
+        await githubSaveTextFile(`profiles/${state.me}_bio.txt`, bioText);
+        bioStatus.textContent = 'Bio saved to GitHub!';
+      } else {
+        // Save locally
+        localStorage.setItem(`bio_${state.me}`, bioText);
+        bioStatus.textContent = 'Bio saved locally (not synced)';
+      }
+    } catch (err) {
+      console.error('Bio save error:', err);
+      bioStatus.textContent = 'Failed to save bio';
+    }
   }
   
-  function sendMessage() {
+  async function loadMyBio() {
+    try {
+      let bioText = '';
+      if (state.repo.owner && state.repo.repo) {
+        // Try to load from GitHub first
+        bioText = await githubLoadTextFile(`profiles/${state.me}_bio.txt`);
+      }
+      
+      if (!bioText) {
+        // Fallback to local storage
+        bioText = localStorage.getItem(`bio_${state.me}`) || '';
+      }
+      
+      bioInput.value = bioText;
+    } catch (err) {
+      console.error('Failed to load bio:', err);
+      bioInput.value = localStorage.getItem(`bio_${state.me}`) || '';
+    }
+  }
+  
+  async function loadTheirBio() {
+    try {
+      let bioText = '';
+      if (state.repo.owner && state.repo.repo) {
+        // Try to load from GitHub
+        bioText = await githubLoadTextFile(`profiles/${state.other}_bio.txt`);
+      }
+      
+      if (!bioText) {
+        // Try local storage as fallback (though this won't work across devices)
+        bioText = localStorage.getItem(`bio_${state.other}`) || '';
+      }
+      
+      theirBio.textContent = bioText || 'No bio yet...';
+    } catch (err) {
+      console.error('Failed to load their bio:', err);
+      theirBio.textContent = 'Failed to load bio';
+    }
+  }
+
+  // --- Chat functionality ---
+  async function loadChatMessages() {
+    chatMessages.innerHTML = '';
+    
+    try {
+      let chatText = '';
+      if (state.repo.owner && state.repo.repo) {
+        // Try to load from GitHub
+        chatText = await githubLoadTextFile(`chat/${state.me}_${state.other}.txt`) || 
+                   await githubLoadTextFile(`chat/${state.other}_${state.me}.txt`) || '';
+      }
+      
+      if (!chatText) {
+        // Fallback to local storage
+        chatText = localStorage.getItem(`chat_${state.me}_${state.other}`) || 
+                   localStorage.getItem(`chat_${state.other}_${state.me}`) || '';
+      }
+      
+      if (chatText) {
+        const messages = chatText.split('\n').filter(line => line.trim());
+        messages.forEach(line => {
+          const match = line.match(/^\[([^\]]+)\] ([^:]+): (.+)$/);
+          if (match) {
+            const [, timestamp, from, text] = match;
+            displayMessage(from, text, new Date(timestamp));
+          }
+        });
+      }
+      
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    } catch (err) {
+      console.error('Failed to load chat:', err);
+      chatStatus.textContent = 'Failed to load chat history';
+    }
+  }
+  
+  function displayMessage(from, text, timestamp) {
+    const div = document.createElement('div');
+    div.className = `message ${from === state.me ? 'sent' : 'received'}`;
+    
+    const textEl = document.createElement('div');
+    textEl.textContent = text;
+    
+    const timeEl = document.createElement('div');
+    timeEl.className = 'message-time';
+    timeEl.textContent = timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    
+    div.appendChild(textEl);
+    div.appendChild(timeEl);
+    chatMessages.appendChild(div);
+  }
+  
+  async function sendMessage() {
     const text = chatInput.value.trim();
     if (!text) return;
     
-    const message = {
-      from: state.me,
-      to: state.other,
-      text: text,
-      timestamp: Date.now()
-    };
+    const timestamp = new Date();
+    const messageLine = `[${timestamp.toISOString()}] ${state.me}: ${text}`;
     
-    // Save to both users' chat histories
-    const chatKey1 = `chat_${state.me}_${state.other}`;
-    const chatKey2 = `chat_${state.other}_${state.me}`;
-    
-    const messages1 = JSON.parse(localStorage.getItem(chatKey1) || '[]');
-    const messages2 = JSON.parse(localStorage.getItem(chatKey2) || '[]');
-    
-    messages1.push(message);
-    messages2.push(message);
-    
-    localStorage.setItem(chatKey1, JSON.stringify(messages1));
-    localStorage.setItem(chatKey2, JSON.stringify(messages2));
-    
+    // Display immediately
+    displayMessage(state.me, text, timestamp);
     chatInput.value = '';
-    loadChatMessages();
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Save to storage
+    try {
+      if (state.repo.token) {
+        // Load existing chat, append new message, save back
+        chatStatus.textContent = 'Sending...';
+        const filename = `chat/${state.me}_${state.other}.txt`;
+        let existingChat = await githubLoadTextFile(filename) || '';
+        const newChat = existingChat + (existingChat ? '\n' : '') + messageLine;
+        await githubSaveTextFile(filename, newChat);
+        chatStatus.textContent = 'Message sent!';
+        setTimeout(() => chatStatus.textContent = '', 2000);
+      } else {
+        // Save locally (won't sync between users without GitHub)
+        const key = `chat_${state.me}_${state.other}`;
+        const existing = localStorage.getItem(key) || '';
+        const newChat = existing + (existing ? '\n' : '') + messageLine;
+        localStorage.setItem(key, newChat);
+        chatStatus.textContent = 'Message saved locally (not synced)';
+        setTimeout(() => chatStatus.textContent = '', 2000);
+      }
+    } catch (err) {
+      console.error('Failed to save message:', err);
+      chatStatus.textContent = 'Failed to send message';
+      setTimeout(() => chatStatus.textContent = '', 3000);
+    }
   }
 
   // --- Touch gestures (right swipe and swipe up for super like) ---
@@ -947,6 +1171,8 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
       mainScreen.classList.add('visible');
       loadFeed();
       loadChatMessages();
+      loadMyBio();
+      loadTheirBio();
     } else {
       alert('Invalid credentials');
     }
@@ -979,6 +1205,10 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
       sendMessage();
     }
   });
+  
+  // Profile/Bio
+  saveBioBtn.addEventListener('click', saveBio);
+  refreshBioBtn.addEventListener('click', loadTheirBio);
 
   uploadBtn.addEventListener('click', async () => {
     if(!state.me){ alert('Please log in first'); return; }
@@ -1038,6 +1268,8 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
     mainScreen.classList.add('visible');
     loadFeed();
     loadChatMessages();
+    loadMyBio();
+    loadTheirBio();
   } else {
     loginScreen.classList.add('visible');
   }
