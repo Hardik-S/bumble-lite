@@ -3,11 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Bumble Lite</title>
+  <title>Only You</title>
   <style>
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #0b0b0c; color: #f5f6f7; }
-:root { --accent: #f7b500; --super-accent: #42a5f5; --muted: #9aa0a6; }
+:root { 
+  --accent: #f7b500; 
+  --super-accent: #42a5f5; 
+  --muted: #9aa0a6;
+  --success: #4caf50;
+  --danger: #f44336;
+}
 #app { min-height: 100svh; display: grid; place-items: stretch; }
 .screen { display: none; padding: 16px; max-width: 640px; margin: 0 auto; }
 .screen.visible { display: block; }
@@ -17,13 +23,15 @@ h2 { font-size: 18px; margin: 16px 0 8px; }
 .sub { color: var(--muted); margin-bottom: 24px; }
 
 label { display: block; font-size: 14px; margin: 8px 0 4px; color: #dfe1e5; }
-input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #2a2a2b; background: #141416; color: #fff; }
-input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+input, textarea { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #2a2a2b; background: #141416; color: #fff; resize: vertical; }
+input:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
 
-.btn { appearance: none; border: none; border-radius: 999px; padding: 12px 18px; background: #1f1f22; color: #fff; font-weight: 600; cursor: pointer; }
+.btn { appearance: none; border: none; border-radius: 999px; padding: 12px 18px; background: #1f1f22; color: #fff; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn.primary { background: var(--accent); color: #191919; }
 .btn.super { background: var(--super-accent); color: #fff; }
-.btn:active { transform: translateY(1px); }
+.btn.success { background: var(--success); color: #fff; }
+.btn:active:not(:disabled) { transform: translateY(1px); }
 .icon-btn { background: transparent; border: 1px solid #2a2a2b; border-radius: 10px; padding: 8px 10px; color: #e8eaed; cursor: pointer; }
 
 .topbar { position: sticky; top: 0; display: flex; align-items: center; gap: 8px; padding: 8px 0 12px; background: #0b0b0c; z-index: 5; }
@@ -32,9 +40,50 @@ input:focus { outline: 2px solid var(--accent); border-color: transparent; }
 
 .content { display: grid; gap: 24px; }
 .card-area { display: grid; gap: 12px; }
-.card { border-radius: 18px; overflow: hidden; border: 1px solid #2a2a2b; background: #0f0f10; min-height: 55svh; display: grid; grid-template-rows: 1fr auto; touch-action: pan-y; }
-.card img { width: 100%; height: 100%; object-fit: cover; background: #0b0b0c; }
-.card-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.8) 100%); margin-top: -72px; }
+.card { 
+  border-radius: 18px; 
+  overflow: hidden; 
+  border: 1px solid #2a2a2b; 
+  background: #0f0f10; 
+  min-height: 55svh; 
+  display: grid; 
+  grid-template-rows: 1fr auto; 
+  touch-action: pan-y;
+  position: relative;
+  transition: all 0.3s ease;
+}
+.card.dynamic-bg {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.card.dynamic-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(20px);
+  z-index: 1;
+}
+.card img { 
+  width: 100%; 
+  height: 100%; 
+  object-fit: cover; 
+  background: #0b0b0c; 
+  cursor: pointer;
+  position: relative;
+  z-index: 2;
+}
+.card-footer { 
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between; 
+  padding: 10px 12px; 
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.8) 100%); 
+  margin-top: -72px;
+  position: relative;
+  z-index: 3;
+}
 .name-wrapper { font-weight: 700; text-shadow: 0 1px 8px rgba(0,0,0,0.7); }
 
 .actions { display: flex; gap: 12px; justify-content: center; align-items: center; }
@@ -42,6 +91,7 @@ input:focus { outline: 2px solid var(--accent); border-color: transparent; }
 .small { font-size: 12px; }
 
 .upload-area { border-top: 1px dashed #2a2a2b; padding-top: 16px; }
+.chat-area { border-top: 1px dashed #2a2a2b; padding-top: 16px; }
 
 .status { min-height: 20px; font-size: 13px; color: #c4f1c4; }
 
@@ -49,13 +99,150 @@ input:focus { outline: 2px solid var(--accent); border-color: transparent; }
 .hint summary { cursor: pointer; }
 
 .gesture-hint { text-align: center; font-size: 12px; color: var(--muted); margin-top: 8px; }
+.keyboard-hint { text-align: center; font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* Chat Messages */
+.chat-messages { 
+  max-height: 300px; 
+  overflow-y: auto; 
+  border: 1px solid #2a2a2b; 
+  border-radius: 10px; 
+  padding: 12px; 
+  background: #141416;
+  margin-bottom: 12px;
+}
+.message { 
+  margin-bottom: 12px; 
+  padding: 8px 12px; 
+  border-radius: 12px; 
+  max-width: 80%;
+}
+.message.sent { 
+  background: var(--accent); 
+  color: #191919; 
+  margin-left: auto; 
+  text-align: right;
+}
+.message.received { 
+  background: #2a2a2b; 
+  color: #fff; 
+}
+.message-time { 
+  font-size: 10px; 
+  opacity: 0.7; 
+  margin-top: 4px;
+}
+
+/* Lightbox */
+.lightbox { 
+  position: fixed; 
+  inset: 0; 
+  background: rgba(0,0,0,0.95); 
+  z-index: 1000; 
+  display: none; 
+  align-items: center; 
+  justify-content: center;
+  touch-action: pan-x;
+}
+.lightbox.visible { display: flex; }
+.lightbox-content { 
+  position: relative; 
+  max-width: 90vw; 
+  max-height: 90vh; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox img { 
+  max-width: 100%; 
+  max-height: 100%; 
+  object-fit: contain;
+  border-radius: 8px;
+}
+.lightbox-nav { 
+  position: absolute; 
+  top: 50%; 
+  transform: translateY(-50%); 
+  background: rgba(255,255,255,0.1); 
+  border: none; 
+  color: #fff; 
+  font-size: 24px; 
+  padding: 12px; 
+  border-radius: 50%; 
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+.lightbox-nav:hover { background: rgba(255,255,255,0.2); }
+.lightbox-prev { left: 20px; }
+.lightbox-next { right: 20px; }
+.lightbox-close { 
+  position: absolute; 
+  top: 20px; 
+  right: 20px; 
+  background: rgba(255,255,255,0.1); 
+  border: none; 
+  color: #fff; 
+  font-size: 24px; 
+  padding: 8px 12px; 
+  border-radius: 8px; 
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+.lightbox-counter {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+/* Match Modal */
+.match-modal { 
+  position: fixed; 
+  inset: 0; 
+  background: rgba(0,0,0,0.9); 
+  z-index: 1001; 
+  display: none; 
+  align-items: center; 
+  justify-content: center;
+  animation: matchFadeIn 0.5s ease-out;
+}
+.match-modal.visible { display: flex; }
+.match-content { 
+  text-align: center; 
+  padding: 40px 20px;
+  background: linear-gradient(135deg, var(--accent), var(--super-accent));
+  border-radius: 20px;
+  color: #fff;
+  max-width: 400px;
+  margin: 20px;
+}
+.match-hearts { 
+  font-size: 60px; 
+  margin-bottom: 20px;
+  animation: heartBeat 1s infinite;
+}
+.match-title { 
+  font-size: 28px; 
+  font-weight: 800; 
+  margin-bottom: 12px;
+}
+.match-subtitle { 
+  font-size: 16px; 
+  opacity: 0.9; 
+  margin-bottom: 30px;
+}
 
 /* Dialog */
 dialog { border: 1px solid #2a2a2b; background: #111114; color: #fff; border-radius: 16px; padding: 16px; max-width: 520px; width: 92vw; }
 dialog::backdrop { background: rgba(0,0,0,0.6); }
 .row { display: flex; gap: 12px; margin-top: 12px; }
 
-/* Gestures */
+/* Gestures & Animations */
 .swipe-right { animation: swipeR 250ms ease-out forwards; }
 .super-like { animation: superLike 250ms ease-out forwards; }
 @keyframes swipeR {
@@ -63,6 +250,14 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
 }
 @keyframes superLike {
   to { transform: translateY(-40vh) scale(1.1); opacity: 0; }
+}
+@keyframes matchFadeIn {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes heartBeat {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
 }
 
 @media (min-width: 600px) {
@@ -74,8 +269,8 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
   <div id="app">
     <!-- Login Screen -->
     <section id="login-screen" class="screen visible">
-      <h1>bumble‑lite</h1>
-      <p class="sub">Only two users. Only right swipes.</p>
+      <h1>only‑you</h1>
+      <p class="sub">A private space for two hearts.</p>
       <form id="login-form">
         <label>Username</label>
         <input id="username" name="username" autocomplete="username" placeholder="hardik or ananya" required />
@@ -92,7 +287,7 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
     <!-- Main App -->
     <section id="main-screen" class="screen">
       <header class="topbar">
-        <div class="brand">bumble‑lite</div>
+        <div class="brand">only‑you</div>
         <div class="spacer"></div>
         <button id="open-settings" aria-label="Settings" class="icon-btn">⚙️</button>
         <button id="logout" class="icon-btn" aria-label="Log out">🚪</button>
@@ -109,12 +304,22 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
             </div>
           </div>
           <div class="actions">
-            <button id="like-btn" class="btn primary">❤️ Like</button>
-            <button id="super-like-btn" class="btn super">⭐ Super Like</button>
-            <button id="next-btn" class="btn">Next</button>
+            <button id="like-btn" class="btn primary" disabled>❤️ Like</button>
+            <button id="super-like-btn" class="btn super" disabled>⭐ Super Like</button>
+            <button id="next-btn" class="btn" disabled>Next</button>
           </div>
           <div class="gesture-hint">Swipe right to like • Swipe up for super like</div>
+          <div class="keyboard-hint">Keyboard: → (like) • ↑ (super like) • ↓ (next)</div>
           <div id="empty-feed" class="muted" hidden>No images yet. Ask the other user to upload!</div>
+        </div>
+
+        <div class="chat-area">
+          <h2>Chat with <span id="chat-partner"></span></h2>
+          <div id="chat-messages" class="chat-messages"></div>
+          <div class="row">
+            <textarea id="chat-input" placeholder="Type a message..." rows="2"></textarea>
+            <button id="send-btn" class="btn primary">Send</button>
+          </div>
         </div>
 
         <div class="upload-area">
@@ -126,6 +331,27 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
         </div>
       </div>
     </section>
+
+    <!-- Lightbox -->
+    <div id="lightbox" class="lightbox">
+      <div class="lightbox-content">
+        <img id="lightbox-img" alt="Full size image" />
+        <button id="lightbox-prev" class="lightbox-nav lightbox-prev">‹</button>
+        <button id="lightbox-next" class="lightbox-nav lightbox-next">›</button>
+        <button id="lightbox-close" class="lightbox-close">✕</button>
+        <div id="lightbox-counter" class="lightbox-counter">1 / 1</div>
+      </div>
+    </div>
+
+    <!-- Match Modal -->
+    <div id="match-modal" class="match-modal">
+      <div class="match-content">
+        <div class="match-hearts">💕</div>
+        <div class="match-title">It's a Match!</div>
+        <div class="match-subtitle">You and <span id="match-username"></span> liked each other</div>
+        <button id="match-close" class="btn success">Start Chatting</button>
+      </div>
+    </div>
 
     <!-- Settings Modal -->
     <dialog id="settings-dialog">
@@ -153,7 +379,7 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
   </div>
 
   <script>
-// bumble-lite front-end
+// only-you front-end
 (function(){
   const el = (id) => document.getElementById(id);
   const loginScreen = el('login-screen');
@@ -162,6 +388,7 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
   const usernameInput = el('username');
   const passwordInput = el('password');
   const otherUsername = el('other-username');
+  const chatPartner = el('chat-partner');
   const likeBtn = el('like-btn');
   const superLikeBtn = el('super-like-btn');
   const nextBtn = el('next-btn');
@@ -179,6 +406,24 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
   const ghBranch = el('gh-branch');
   const ghToken = el('gh-token');
   const logoutBtn = el('logout');
+  
+  // Lightbox elements
+  const lightbox = el('lightbox');
+  const lightboxImg = el('lightbox-img');
+  const lightboxPrev = el('lightbox-prev');
+  const lightboxNext = el('lightbox-next');
+  const lightboxClose = el('lightbox-close');
+  const lightboxCounter = el('lightbox-counter');
+  
+  // Match modal elements
+  const matchModal = el('match-modal');
+  const matchUsername = el('match-username');
+  const matchClose = el('match-close');
+  
+  // Chat elements
+  const chatMessages = el('chat-messages');
+  const chatInput = el('chat-input');
+  const sendBtn = el('send-btn');
 
   // --- App State ---
   let state = {
@@ -186,6 +431,7 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
     other: null,             // opposite of 'me'
     feed: [],                // array of image URLs
     feedIdx: 0,              // current index
+    lightboxIdx: 0,          // current lightbox index
     repo: { owner: '', repo: '', branch: 'main', token: '' }
   };
 
@@ -203,7 +449,7 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
 
   // Load repo settings from localStorage
   function loadRepoSettings(){
-    const saved = localStorage.getItem('ghRepoCfg');
+    const saved = localStorage.getItem('onlyYouRepoCfg');
     if(saved){
       try { state.repo = JSON.parse(saved); } catch(e){}
     } else {
@@ -225,7 +471,7 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
     state.repo.repo = ghRepo.value.trim();
     state.repo.branch = ghBranch.value.trim() || 'main';
     state.repo.token = ghToken.value.trim();
-    localStorage.setItem('ghRepoCfg', JSON.stringify(state.repo));
+    localStorage.setItem('onlyYouRepoCfg', JSON.stringify(state.repo));
   }
 
   // --- Auth (two fixed accounts) ---
@@ -234,11 +480,11 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
     'ananya': 'ilovehardik'
   };
   function persistSession(){
-    localStorage.setItem('bumbleLiteSession', JSON.stringify({ me: state.me, ts: Date.now() }));
+    localStorage.setItem('onlyYouSession', JSON.stringify({ me: state.me, ts: Date.now() }));
   }
   function loadSession(){
     try{
-      const s = JSON.parse(localStorage.getItem('bumbleLiteSession')||'null');
+      const s = JSON.parse(localStorage.getItem('onlyYouSession')||'null');
       if(s?.me && USERS[s.me]){
         state.me = s.me;
         state.other = (state.me === 'hardik') ? 'ananya' : 'hardik';
@@ -248,7 +494,46 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
     return false;
   }
   function clearSession(){
-    localStorage.removeItem('bumbleLiteSession');
+    localStorage.removeItem('onlyYouSession');
+  }
+
+  // --- Likes & Matches ---
+  function getLikes(user, type = 'likes') {
+    const key = `${type}_${user}`;
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  }
+  
+  function addLike(user, imageUrl, type = 'likes') {
+    const key = `${type}_${user}`;
+    const likes = getLikes(user, type);
+    if (!likes.includes(imageUrl)) {
+      likes.push(imageUrl);
+      localStorage.setItem(key, JSON.stringify(likes));
+      
+      // Check for mutual like (match)
+      if (type === 'likes') {
+        const theirLikes = getLikes(state.other, 'likes');
+        const myImages = JSON.parse(localStorage.getItem(`localImages_${state.me}`) || '[]');
+        
+        // Check if they liked any of my images and I just liked theirs
+        const hasMatch = theirLikes.some(likedImg => {
+          return myImages.includes(likedImg);
+        });
+        
+        if (hasMatch) {
+          showMatchModal();
+        }
+      }
+    }
+  }
+  
+  function showMatchModal() {
+    matchUsername.textContent = state.other;
+    matchModal.classList.add('visible');
+  }
+  
+  function hideMatchModal() {
+    matchModal.classList.remove('visible');
   }
 
   // --- Image compression utilities ---
@@ -400,19 +685,34 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
     return arr;
   }
 
+  // --- Dynamic card backgrounds ---
+  function updateCardBackground(imageUrl) {
+    if (!imageUrl) {
+      card.classList.remove('dynamic-bg');
+      card.style.backgroundImage = '';
+      return;
+    }
+    
+    card.classList.add('dynamic-bg');
+    card.style.backgroundImage = `url(${imageUrl})`;
+  }
+
   // --- Feed logic ---
   async function loadFeed(){
     otherUsername.textContent = state.other;
+    chatPartner.textContent = state.other;
     try {
       const imgs = await githubListImages(state.other);
       state.feed = imgs;
       state.feedIdx = 0;
       renderCard();
+      updateButtonStates();
     } catch(e){
       console.error(e);
       state.feed = [];
       state.feedIdx = 0;
       renderCard();
+      updateButtonStates();
     }
   }
 
@@ -420,15 +720,26 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
     if(!state.feed.length || state.feedIdx >= state.feed.length){
       cardImg.removeAttribute('src');
       emptyFeed.hidden = false;
+      updateCardBackground(null);
       return;
     }
     emptyFeed.hidden = true;
-    cardImg.src = state.feed[state.feedIdx];
+    const currentImg = state.feed[state.feedIdx];
+    cardImg.src = currentImg;
+    updateCardBackground(currentImg);
+  }
+  
+  function updateButtonStates() {
+    const hasImages = state.feed.length > 0 && state.feedIdx < state.feed.length;
+    likeBtn.disabled = !hasImages;
+    superLikeBtn.disabled = !hasImages;
+    nextBtn.disabled = !hasImages;
   }
 
   function nextCard(){
     state.feedIdx = Math.min(state.feedIdx + 1, state.feed.length);
     renderCard();
+    updateButtonStates();
   }
 
   function likeCurrent(isSuper = false){
@@ -436,10 +747,8 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
     const img = state.feed[state.feedIdx];
     
     // Store like locally per user
-    const k = isSuper ? `superlikes_${state.me}` : `likes_${state.me}`;
-    const likes = JSON.parse(localStorage.getItem(k) || '[]');
-    if(!likes.includes(img)) likes.push(img);
-    localStorage.setItem(k, JSON.stringify(likes));
+    const type = isSuper ? 'superlikes' : 'likes';
+    addLike(state.me, img, type);
 
     // Animate and go next
     const animClass = isSuper ? 'super-like' : 'swipe-right';
@@ -452,14 +761,110 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
     }, 250);
   }
 
+  // --- Lightbox functionality ---
+  function openLightbox(startIdx = 0) {
+    if (!state.feed.length) return;
+    state.lightboxIdx = startIdx;
+    updateLightboxImage();
+    lightbox.classList.add('visible');
+    document.body.style.overflow = 'hidden';
+  }
+  
+  function closeLightbox() {
+    lightbox.classList.remove('visible');
+    document.body.style.overflow = '';
+  }
+  
+  function updateLightboxImage() {
+    if (state.lightboxIdx < 0) state.lightboxIdx = 0;
+    if (state.lightboxIdx >= state.feed.length) state.lightboxIdx = state.feed.length - 1;
+    
+    lightboxImg.src = state.feed[state.lightboxIdx];
+    lightboxCounter.textContent = `${state.lightboxIdx + 1} / ${state.feed.length}`;
+    
+    lightboxPrev.style.display = state.lightboxIdx > 0 ? 'block' : 'none';
+    lightboxNext.style.display = state.lightboxIdx < state.feed.length - 1 ? 'block' : 'none';
+  }
+  
+  function prevLightboxImage() {
+    if (state.lightboxIdx > 0) {
+      state.lightboxIdx--;
+      updateLightboxImage();
+    }
+  }
+  
+  function nextLightboxImage() {
+    if (state.lightboxIdx < state.feed.length - 1) {
+      state.lightboxIdx++;
+      updateLightboxImage();
+    }
+  }
+
+  // --- Chat functionality ---
+  function loadChatMessages() {
+    const messages = JSON.parse(localStorage.getItem(`chat_${state.me}_${state.other}`) || '[]');
+    chatMessages.innerHTML = '';
+    
+    messages.forEach(msg => {
+      const div = document.createElement('div');
+      div.className = `message ${msg.from === state.me ? 'sent' : 'received'}`;
+      
+      const text = document.createElement('div');
+      text.textContent = msg.text;
+      
+      const time = document.createElement('div');
+      time.className = 'message-time';
+      time.textContent = new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      
+      div.appendChild(text);
+      div.appendChild(time);
+      chatMessages.appendChild(div);
+    });
+    
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+  
+  function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    
+    const message = {
+      from: state.me,
+      to: state.other,
+      text: text,
+      timestamp: Date.now()
+    };
+    
+    // Save to both users' chat histories
+    const chatKey1 = `chat_${state.me}_${state.other}`;
+    const chatKey2 = `chat_${state.other}_${state.me}`;
+    
+    const messages1 = JSON.parse(localStorage.getItem(chatKey1) || '[]');
+    const messages2 = JSON.parse(localStorage.getItem(chatKey2) || '[]');
+    
+    messages1.push(message);
+    messages2.push(message);
+    
+    localStorage.setItem(chatKey1, JSON.stringify(messages1));
+    localStorage.setItem(chatKey2, JSON.stringify(messages2));
+    
+    chatInput.value = '';
+    loadChatMessages();
+  }
+
   // --- Touch gestures (right swipe and swipe up for super like) ---
   let touchStartX = null, touchStartY = null;
+  let lightboxTouchStartX = null;
+  
   card.addEventListener('touchstart', (e) => {
     const t = e.changedTouches[0];
-    touchStartX = t.clientX; touchStartY = t.clientY;
+    touchStartX = t.clientX; 
+    touchStartY = t.clientY;
   }, {passive: true});
   
   card.addEventListener('touchend', (e) => {
+    if (likeBtn.disabled) return; // Don't process gestures when deck is empty
+    
     const t = e.changedTouches[0];
     const dx = t.clientX - touchStartX;
     const dy = touchStartY - t.clientY; // Inverted for upward swipe
@@ -474,6 +879,60 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
       likeCurrent(false);
     }
   }, {passive: true});
+  
+  // Lightbox touch gestures
+  lightbox.addEventListener('touchstart', (e) => {
+    const t = e.changedTouches[0];
+    lightboxTouchStartX = t.clientX;
+  }, {passive: true});
+  
+  lightbox.addEventListener('touchend', (e) => {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - lightboxTouchStartX;
+    
+    if (Math.abs(dx) > 50) {
+      if (dx > 0) {
+        prevLightboxImage();
+      } else {
+        nextLightboxImage();
+      }
+    }
+  }, {passive: true});
+
+  // --- Keyboard shortcuts ---
+  document.addEventListener('keydown', (e) => {
+    if (lightbox.classList.contains('visible')) {
+      // Lightbox controls
+      if (e.key === 'Escape') {
+        closeLightbox();
+      } else if (e.key === 'ArrowLeft') {
+        prevLightboxImage();
+      } else if (e.key === 'ArrowRight') {
+        nextLightboxImage();
+      }
+      return;
+    }
+    
+    if (matchModal.classList.contains('visible')) {
+      if (e.key === 'Escape' || e.key === 'Enter') {
+        hideMatchModal();
+      }
+      return;
+    }
+    
+    // Main app keyboard shortcuts
+    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
+      return; // Don't interfere with text input
+    }
+    
+    if (e.key === 'ArrowRight') {
+      if (!likeBtn.disabled) likeCurrent(false);
+    } else if (e.key === 'ArrowUp') {
+      if (!superLikeBtn.disabled) likeCurrent(true);
+    } else if (e.key === 'ArrowDown') {
+      if (!nextBtn.disabled) nextCard();
+    }
+  });
 
   // --- UI Events ---
   loginForm.addEventListener('submit', (e) => {
@@ -487,6 +946,7 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
       loginScreen.classList.remove('visible');
       mainScreen.classList.add('visible');
       loadFeed();
+      loadChatMessages();
     } else {
       alert('Invalid credentials');
     }
@@ -495,6 +955,30 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
   likeBtn.addEventListener('click', () => likeCurrent(false));
   superLikeBtn.addEventListener('click', () => likeCurrent(true));
   nextBtn.addEventListener('click', nextCard);
+  
+  // Image tap to open lightbox
+  cardImg.addEventListener('click', () => {
+    if (state.feed.length > 0 && state.feedIdx < state.feed.length) {
+      openLightbox(state.feedIdx);
+    }
+  });
+  
+  // Lightbox controls
+  lightboxClose.addEventListener('click', closeLightbox);
+  lightboxPrev.addEventListener('click', prevLightboxImage);
+  lightboxNext.addEventListener('click', nextLightboxImage);
+  
+  // Match modal
+  matchClose.addEventListener('click', hideMatchModal);
+  
+  // Chat
+  sendBtn.addEventListener('click', sendMessage);
+  chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
 
   uploadBtn.addEventListener('click', async () => {
     if(!state.me){ alert('Please log in first'); return; }
@@ -553,6 +1037,7 @@ dialog::backdrop { background: rgba(0,0,0,0.6); }
     loginScreen.classList.remove('visible');
     mainScreen.classList.add('visible');
     loadFeed();
+    loadChatMessages();
   } else {
     loginScreen.classList.add('visible');
   }
